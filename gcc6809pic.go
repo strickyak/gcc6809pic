@@ -6,12 +6,24 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"regexp"
 	"strings"
 )
 
 var NAME = flag.String("name", "noname", "module name to create")
+var LIB1 = flag.String("lib1", "", "/home/strick/modoc/coco-shelf/gccretro/gcc/config/m6809/libgcc1.s")
 var MEM = flag.Uint("mem", 256, "default memory size for module")
+
+var CurrentArea string
+var LibGcc1Defines []string
+var Symbols = make(map[string]*Symbol)
+var Areas = make(map[string]struct{})
+
+type Symbol struct {
+	Label string
+	Area  string
+}
 
 type AsmLine struct {
 	Filename string
@@ -26,20 +38,55 @@ type AsmLine struct {
 // Remark Lines:
 // Blank Space, possibly followed by `;` or `*` and anything.
 var RemarkLinePattern = regexp.MustCompile(`^\s*([;*].*)?$`)
-var LabelLinePattern = regexp.MustCompile(`^([A-Za-z_.@$#][A-Za-z0-9_.@$#?]*)[:]?\s*([*;].*)?$`)
+var LabelLinePattern = regexp.MustCompile(`^([A-Za-z_.@$#][A-Za-z0-9_.@$#?]*)\s*([*;].*)?$`)
+var LabelColonLinePattern = regexp.MustCompile(`^\s*([A-Za-z_.@$#][A-Za-z0-9_.@$#?]*)[:]\s*([*;].*)?$`)
 var FullLinePattern = regexp.MustCompile(`^(([A-Za-z_.@$#][A-Za-z0-9_.@$#?]*)[:]?)?\s+([A-Za-z0-9._=]+)\s*(.*?)\s*$`)
 
 func main() {
 	log.SetFlags(0)
 	flag.Parse()
 	var z []*AsmLine
+
+	for _, filename := range flag.Args() {
+        PreSlurp(filename, false)
+	}
+    if *LIB1 != "" {
+        PreSlurp(*LIB1, true)
+    }
+
+    for k, v := range LibProvides {
+        log.Printf("%q provides %q", k, v)
+    }
+    for k, v := range LibRequires {
+        log.Printf("%q requires %q", k, v)
+    }
+
 	for _, filename := range flag.Args() {
 		z = append(z, Slurp(filename)...)
 	}
 	EmitPrelude()
-	Emit(Tweak(z))
+
+	z2, err := Tweak(z)
+    if err != nil {
+        log.Fatalf("Fatal error: %v", err)
+    }
+
+	Emit(z2)
 	EmitPostlude()
 }
+
+/*
+SymbolNotFound: "_udivhi3"
+SymbolNotFound: "_umodhi3"
+SymbolNotFound: "_mulhi3"
+SymbolNotFound: "_divhi3"
+SymbolNotFound: "_modhi3"
+SymbolNotFound: "_ashrhi3"
+SymbolNotFound: "_lshrhi3"
+SymbolNotFound: "_ashlhi3"
+*/
+
+var ArithLib = regexp.MustCompile(`\b_(u?(div|mod|mul)|[al]sh[rl])hi3\b`)
 
 func Slurp(filename string) (z []*AsmLine) {
 	fd := Value(os.Open(filename))
@@ -49,6 +96,11 @@ func Slurp(filename string) (z []*AsmLine) {
 		i++
 		line := scanner.Text()
 		line = strings.TrimRight(line, " \t\r\n")
+
+        if m := ArithLib.FindStringSubmatch(line); m != nil {
+            LibGcc1Defines = append(LibGcc1Defines, m[0])
+        }
+
 		if m := RemarkLinePattern.FindStringSubmatch(line); m != nil {
 			z = append(z, &AsmLine{
 				Filename: filename,
@@ -60,6 +112,24 @@ func Slurp(filename string) (z []*AsmLine) {
 		}
 		if m := LabelLinePattern.FindStringSubmatch(line); m != nil {
 			label := m[1]
+			Symbols[label] = &Symbol{
+				Label: label,
+				Area:  CurrentArea,
+			}
+			z = append(z, &AsmLine{
+				Filename: filename,
+				LineNum:  i,
+				Line:     line,
+				Label:    label,
+			})
+			continue
+		}
+		if m := LabelColonLinePattern.FindStringSubmatch(line); m != nil {
+			label := m[1]
+			Symbols[label] = &Symbol{
+				Label: label,
+				Area:  CurrentArea,
+			}
 			z = append(z, &AsmLine{
 				Filename: filename,
 				LineNum:  i,
@@ -70,6 +140,16 @@ func Slurp(filename string) (z []*AsmLine) {
 		}
 		if m := FullLinePattern.FindStringSubmatch(line); m != nil {
 			label, opcode, args := m[2], m[3], m[4]
+			if opcode == ".area" {
+				CurrentArea = FirstWord(args)
+				Areas[CurrentArea] = struct{}{}
+			}
+			if label != "" {
+				Symbols[label] = &Symbol{
+					Label: label,
+					Area:  CurrentArea,
+				}
+			}
 			z = append(z, &AsmLine{
 				Filename: filename,
 				LineNum:  i,
@@ -86,81 +166,218 @@ func Slurp(filename string) (z []*AsmLine) {
 	return
 }
 
-var ExtendedLabelArgPattern = regexp.MustCompile(`^([_L][A-Za-z0-9_.]*)(\s.*)?$`)
-var ImmediateLabelArgPattern = regexp.MustCompile(`^([#][A-Za-z_][A-Za-z0-9_.]*)(\s.*)?$`)
+var EmbeddedSymbolPattern = regexp.MustCompile(`^(.*)\b([_L][A-Za-z0-9_.]*)\b(.*)$`)
+
+var ExtendedSymbolArgPattern = regexp.MustCompile(`^([_L][A-Za-z0-9_.]*)(\s.*)?$`)
+var ImmediateSymbolArgPattern = regexp.MustCompile(`^([#][A-Za-z_][A-Za-z0-9_.]*)(\s.*)?$`)
 var FirstWordPattern = regexp.MustCompile(`^(\S+)(.*)$`)
 var IdentifierPattern = regexp.MustCompile(`^([A-Za-z_][A-Za-z0-9_.]*)$`)
 
 func FirstWord(s string) string {
-    m := FirstWordPattern.FindStringSubmatch(s)
-    if m == nil {
-        log.Panic("Expected a first argument: %q", s)
-    }
-    return m[1]
+	m := FirstWordPattern.FindStringSubmatch(s)
+	if m == nil {
+		return ""
+		log.Panicf("Expected a first argument: %q", s)
+	}
+	return m[1]
 }
 
-func Tweak(a []*AsmLine) (z []*AsmLine) {
-	for _, it := range a {
-		switch {
-		case it.Opcode == "jmp":
-				dup := *it
-				dup.Opcode = "lbra"
-				dup.Args = Format("%s  ;PIC_FIXED: %s", dup.Args, it.Line)
-				z = append(z, &dup)
-				continue
+func CommentOut(a *AsmLine) *AsmLine {
+	return &AsmLine{
+		Remark: Format("*XXX* %s", a.Line),
+	}
+}
 
-		case it.Opcode == "jsr":
-			front := FirstWord(it.Args)
-			if front == ",x" || front == ",y" || front == ",u" || front == ",s" {
-				goto KEEP
-			}
+func TweakText(a *AsmLine, symbol string, front string, z []*AsmLine) []*AsmLine {
+	switch a.Opcode {
+	/*
+			case ".module":
+	                z = append(z, CommentOut(a))
 
-            isIdentifier := IdentifierPattern.FindStringSubmatch(front)
-            if isIdentifier == nil {
-                log.Panicf("(%s:%d) Case not handled: %q", it.Filename, it.LineNum, it.Line)
-            }
+			case ".area":
+	                z = append(z, CommentOut(a))
 
-			dup := *it // makes a copy of the struct
-			dup.Opcode = "lbsr"
-			dup.Args = Format("%s  ;PIC_FIXED: %s", front, it.Line)
+			case ".globl":
+	                z = append(z, CommentOut(a))
+	*/
+
+	case "jmp":
+		dup := *a
+		dup.Opcode = "lbra"
+		dup.Args = Format("%s  ;PIC_FIXED: %s", dup.Args, a.Line)
+		z = append(z, &dup)
+
+	case "jsr":
+		front := FirstWord(a.Args)
+		if front == ",x" || front == ",y" || front == ",u" || front == ",s" {
+			goto KEEP
+		}
+
+		isIdentifier := IdentifierPattern.FindStringSubmatch(front)
+		if isIdentifier == nil {
+			log.Panicf("(%s:%d) Case not handled: %q", a.Filename, a.LineNum, a.Line)
+		}
+
+		dup := *a // makes a copy of the struct
+		dup.Opcode = "lbsr"
+		dup.Args = Format("%s  ;PIC_FIXED: %s", front, a.Line)
+		z = append(z, &dup)
+
+	case "ldd", "ldx", "ldy", "ldu", "lds",
+		"std", "stx", "sty", "stu", "sts":
+		if m := ImmediateSymbolArgPattern.FindStringSubmatch(a.Args); m != nil {
+			dup := *a
+			dup.Opcode = Format("lea%c", a.Opcode[2])
+			dup.Args = Format("%s,pcr  ;PIC_IMM: %s", m[1][1:], a.Line)
 			z = append(z, &dup)
-			continue
 
-		case it.Opcode == "ldd" || it.Opcode == "ldx" || it.Opcode == "ldy" || it.Opcode == "ldu" || it.Opcode == "lds":
-			if m := ImmediateLabelArgPattern.FindStringSubmatch(it.Args); m != nil {
-				dup := *it
-				dup.Opcode = Format("lea%c", it.Opcode[2])
-				dup.Args = Format("%s,pcr  ;PIC_FIXED: %s", m[1][1:], it.Line)
-				z = append(z, &dup)
-				continue
+		} else if m := ExtendedSymbolArgPattern.FindStringSubmatch(a.Args); m != nil {
+			dup := *a
+			dup.Opcode = Format("lea%c", a.Opcode[2])
+			dup.Args = Format("%s,pcr  ;PIC_LEA: %s ## %q", m[1], a.Line, front)
+			z = append(z, &dup)
+			deref := *a
+			deref.Label = ""
+			deref.Opcode = a.Opcode
+			deref.Args = Format(",%c  ;PIC_OP: ## %q", a.Opcode[2], front)
+			z = append(z, &deref)
+
+		} else {
+		    goto KEEP
+        }
+	default:
+		goto KEEP
+	}
+	// return z with new stuff pushed onto it.
+	return z
+
+KEEP:
+	// return z with the unchanged input pushed onto it.
+	z = append(z, a)
+	return z
+}
+
+var SymbolPlusMinus = regexp.MustCompile("^{}([+-])([0-9]+)$")
+
+func LastChar(s string) byte {
+    n := len(s)
+    return s[n-1]
+}
+
+func TweakBss(a *AsmLine, symbol string, front string, z []*AsmLine) []*AsmLine {
+    op := func(format string, args ...any) {
+        z = append(z, &AsmLine{Opcode: Format(format, args...)})
+    }
+    lpm := SymbolPlusMinus.FindStringSubmatch(front)
+
+    if front == "{}" {
+        op("%s  %s,y", a.Opcode, symbol)
+    } else if front == "#{}" {
+        switch a.Opcode {
+        case "ldd":
+            op("tfr  y,d")
+            op("addd  #%s", a.Opcode, symbol)
+        case "ldx", "ldy", "ldu", "lds":
+            op("lea%c  %s,y", LastChar(a.Opcode), symbol)
+        case "addd":
+            op("pshs y")
+            op("leay d,y")
+            op("tfr y,d")
+            op("puls y")
+            z = append(z, a) // addd #_VAR
+
+        default:
+            panic(a.Line)
+        }
+    } else if lpm != nil {
+        op("%s  %s%s%s,y", a.Opcode, symbol, lpm[1], lpm[2])
+    } else {
+        op("TODO * %#v", a)
+    }
+
+	return z
+}
+
+func Tweak(a []*AsmLine) (z []*AsmLine, err error) {
+    for _, symbol := range LibGcc1Defines {
+			Symbols[symbol] = &Symbol{
+				Label: symbol,
+				Area:  ".text",
 			}
-			if m := ExtendedLabelArgPattern.FindStringSubmatch(it.Args); m != nil {
-				dup := *it
-				dup.Opcode = Format("lea%c", it.Opcode[2])
-				dup.Args = Format("%s,pcr  ;PIC_FIXED: %s", m[1], it.Line)
-				z = append(z, &dup)
-				deref := *it
-				deref.Label = ""
-				deref.Opcode = it.Opcode
-				deref.Args = Format(",%c  ;PIC_DEREF:", it.Opcode[2])
-				z = append(z, &deref)
-				continue
+    }
+
+    // Collect all the not-found symbols here.
+    // If there are any of these at the end, panic.
+    var symbolsNotFound []string
+
+	for _, it := range a {
+		switch it.Opcode {
+		case ".module", ".area", ".globl":
+			z = append(z, &AsmLine{
+				Filename: it.Filename,
+				LineNum:  it.LineNum,
+				// Remark:   Format("%60s *** %s ***", "*", it.Line),
+				Remark:   Format("%20s *** %s ***", "*", it.Line),
+			})
+		case ".ascii":
+			z = append(z, it)
+		case "":
+			z = append(z, it)
+		default:
+			front := FirstWord(it.Args)
+			m := EmbeddedSymbolPattern.FindStringSubmatch(front)
+			if m != nil {
+				symbol := m[2]
+				rec, ok := Symbols[symbol]
+				if !ok {
+                    symbolsNotFound = append(symbolsNotFound, symbol)
+                    z = append(z, &AsmLine{Opcode:Format("SymbolNotFound %q", symbol)})
+                    continue
+				}
+				area := rec.Area
+				front = strings.Replace(front, symbol, "{}", 1)
+				switch area {
+				case ".text", ".text.startup":
+					z = TweakText(it, symbol, front, z)
+				case ".data":
+					z = TweakText(it, symbol, front, z)
+				case ".bss":
+					z = TweakBss(it, symbol, front, z)
+				default:
+					log.Panicf("area not known: %q", area)
+				}
+			} else {
+				z = append(z, it)
 			}
 		}
-	KEEP:
-		z = append(z, it)
 	}
-	return
+
+	if len(symbolsNotFound) > 0 {
+		for sym, rec := range Symbols {
+						log.Printf("Symbol: %q = %v", sym, *rec)
+		}
+		for _, sym := range symbolsNotFound {
+						log.Printf("SymbolNotFound: %q", sym)
+		}
+        return nil, fmt.Errorf("%d symbols not found", len(symbolsNotFound))
+    }
+    return
 }
 
 func Emit(a []*AsmLine) {
 	for _, it := range a {
 		switch {
-		case it.Opcode == ".module" || it.Opcode == ".area" || it.Opcode == ".globl":
-			fmt.Printf("%-60s *** %s ***\n", "***", it.Line)
+		case it.Label == "" && it.Opcode == "" && it.Remark != "":
+			// // fmt.Printf("%-60s *** %s ***\n", "", it.Remark)
+			// fmt.Printf("%-60s %s\n", "", it.Remark)
+			fmt.Printf("%s\n", it.Line)
+
+		case it.Label == "" && it.Opcode == "" && it.Line == "":
+			fmt.Printf("\n")
 
 		case it.Label == "" && it.Opcode == "":
-			fmt.Printf("%-60s *** %s ***\n", "***", it.Line)
+			// fmt.Printf("%-60s *** %s ***\n", "", it.Line)
+			fmt.Printf("%s\n", it.Line)
 
 		case it.Label != "":
 			fmt.Printf("%-20s %-12s %s\n", it.Label+":", it.Opcode, it.Args)
@@ -172,6 +389,23 @@ func Emit(a []*AsmLine) {
 }
 
 func EmitPrelude() {
+    args := []string{"cpp"}
+    for _, s := range LibGcc1Defines {
+        args = append(args, Format("-D%s=1", s))
+    }
+    args = append(args, "/home/strick/modoc/coco-shelf/gccretro/gcc/config/m6809/libgcc1.s")
+    cmd := &exec.Cmd{
+        Path: "/usr/bin/cpp",
+        Args: args,
+        Stdin: nil,
+        Stdout: os.Stdout,
+        Stderr: os.Stderr,
+    }
+    e := cmd.Run()
+    if e != nil {
+        log.Fatalf("/usr/bin/cpp failed")
+    }
+
 	mem := Format("%d", *MEM)
 	s := PRELUDE
 	s = strings.Replace(s, "<-name->", *NAME, -1)
@@ -205,11 +439,19 @@ size                equ       <-mem->
 name                fcs       /<-name->/
                     fcb       edition
 
-start:              lbsr _main
+start:              
+                    clra
+                    clrb
+                    tfr d,x
+                    tfr d,u
+                    tfr dp,a
+                    tfr d,y
+                    tst ,y
+                    lbsr _main
                     tfr x,d     ; X has return status, but we want it in B.
                     os9 F$Exit
-zombie:
-                    bra zombie  ; F$Exit should never return.
+
+undead:             bra undead  ; just get stuck because F$Exit should never have returned.
 `
 
 const POSTLUDE = `

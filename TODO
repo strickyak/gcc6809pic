@@ -1,0 +1,3 @@
+change .bss rules to use ,y with -ffixed-y
+
+change os9/_generated_os9api_for_gcc.c to PSHS/PULS Y
