@@ -1,0 +1,30 @@
+[ jmp T ]
+  lbra T
+
+[ jsr T ]
+  lbsr T
+
+[ ldd #T ]
+  tfr d,x
+  leax T
+  tfr d,x
+
+[ ldx T ]
+  leax T,pcr
+  ldx ,x
+[ ldy T ]
+  leay T,pcr
+  ldy ,y
+[ ldu T ]
+  leau T,pcr
+  ldu ,u
+
+[ leax T ]
+  leax T,pcr
+[ leay T ]
+  leay T,pcr
+[ leau T ]
+  leau T,pcr
+
+
+
