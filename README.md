@@ -19,27 +19,27 @@ handle.  But with some discipline in how you use C, it can work.
 
 ## Work In Progress
 
-This only works for one program `a.c`.
+This only works for one program `github.com/strickyak/collatz/retro-bignum`
 
-Global/Static variables definitely do not work at all (yet).
-
-Many addressing modes (like `  ldb _buf+1`) do not work (yet).
+Many more instructions need to be added to `RULES_TXT` in `rules.go`
 
 I'm using `Ubuntu 24.04.2 LTS` on `x86_64`.
 
-## Where is the gcc?
+Use `-fwhole-program` for global optimiztions,
+but that requires an "#include"-only approach, rather than multiple
+program modules.
+
+Actually, here's the flags I use for gcc6809:
+
+````
+-O2 -std=gnu99 -fwhole-program -fomit-frame-pointer -ffixed-y -nostdlib -ffreestanding
+````
+
+## Where is the gcc for 6809?
 
 https://github.com/strickyak/coco-shelf can get you started.
 
-## Roadmap
-
-* Finish `.text` patterns
-
-* Do `.data` & `.bss` patterns (for NitrOS9, Level I or II)
-
-* Use `-fwhole-program` for global optimiztions,
-  but that requires an "#include"-only approach, rather than multiple
-  program modules.
+## TODO
 
 * Smartly include needed libraries, so that `lwlink`
   is never needed, and the whole program appears to `lwasm --format=os9`

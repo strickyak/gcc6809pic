@@ -1,3 +1,73 @@
+package main
+
+// Slurp a config file with [] headers
+
+import (
+	"log"
+	"regexp"
+	"strings"
+)
+
+var FindBlankLine = regexp.MustCompile(`^\s*$`).FindStringSubmatch
+var FindCommentLine = regexp.MustCompile(`^\s*[#]`).FindStringSubmatch
+var FindHeaderLine = regexp.MustCompile(`^\s*[[](.*)[]]\s*$`).FindStringSubmatch
+
+type Rule struct {
+	Key     string
+	LineNum int
+	Lines   []string
+}
+
+func ReadConfigFile() ( map[string]*Rule) {
+    rules := make(map[string]*Rule)
+	var cd *Rule
+
+	s := RULES_TXT
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	lines := strings.Split(s, "\n")
+	i := 0
+	for _, line := range lines {
+		i++
+		if FindBlankLine(line) != nil {
+			continue
+		}
+		if FindCommentLine(line) != nil {
+			continue
+		}
+		if hl := FindHeaderLine(line); hl != nil {
+            key := strings.TrimSpace(hl[1])
+			cd = &Rule{
+				Key:     key,
+				LineNum: i,
+			}
+	        rules[key] = cd
+            continue
+		}
+		if cd == nil {
+			log.Panicf("Line %d not in any section: %q", i, line)
+		}
+		cd.Lines = append(cd.Lines, line)
+	}
+	return rules
+}
+
+// Each rule starts with a [...] header naming the
+// generic form of the instruction to match.
+// There is always one symbolic label in the header,
+// which must be "Text" or "Data" depending on whether
+// the label is in the read-only text portion of the module,
+// or in the read-write memory of the OS9 process.
+//
+// The body of the rule is the text to substitute.
+// Basically, any rule with "Text" needs to interpret
+// that label in ",pcr" (program counter relative) mode.
+// Any rule with "Data" needs to add the contents of the
+// Y register to the symbol value. (The preamble of the
+// program must set up the Y register, and the Y register
+// must be reserved, as with the command line flag
+// "-ffixed-y".   Also to free up the U register,
+// use the command line flag "-fomit-frame-pointer".
+const RULES_TXT = `
 [ jmp Text ]
   lbra Text
 
@@ -166,4 +236,4 @@
   puls b
   stb Data,u
   puls a,u
-  
+`

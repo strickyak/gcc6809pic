@@ -91,7 +91,7 @@ func main() {
         }
     }()
 
-	rules := ReadConfigFile(*RULES)
+	rules := ReadConfigFile()
 	if *LIB1 != "" {
 		PreSlurp(*LIB1, true)
 		for _, symbol := range LibGcc1Defines {
@@ -125,7 +125,7 @@ func main() {
 	EmitPostlude()
 }
 
-func Changem(aa []*AsmLine, rules map[string]*ConfigDefine) {
+func Changem(aa []*AsmLine, rules map[string]*Rule) {
     for _, a := range aa {
         if _, ok := Omit[a.Opcode]; ok {
             fmt.Printf("*** OMIT *** %q\n", a.Line)
