@@ -8,7 +8,7 @@ import (
 )
 
 var Format = fmt.Sprintf
-var Panicf = log.Panicf
+var Unit = struct{}{}
 
 func AsciiToUintOrZero(s string) uint {
     z, err := strconv.ParseUint(s, 10, 32)
@@ -32,4 +32,29 @@ func Check(err error, args ...any) {
 		s += "\n[[[[[[\n" + string(debug.Stack()) + "\n]]]]]]\n"
 		log.Panic(s)
 	}
+}
+
+func AssertGE[T Comparable](a, b T, args ...any) {
+    if !(a >= b) {
+        s := fmt.Sprintf("Assert Fails: (%v) >= (%v)", a, b)
+		for _, x := range args {
+			s += fmt.Sprintf(" ; %v", x)
+		}
+		s += "\n[[[[[[\n" + string(debug.Stack()) + "\n]]]]]]\n"
+		log.Panic(s)
+    }
+}
+func AssertNE[T Comparable](a, b T, args ...any) {
+    if !(a != b) {
+        s := fmt.Sprintf("Assert Fails: (%#v) != (%#v)", a, b)
+		for _, x := range args {
+			s += fmt.Sprintf(" ; %v", x)
+		}
+		s += "\n[[[[[[\n" + string(debug.Stack()) + "\n]]]]]]\n"
+		log.Panic(s)
+    }
+}
+
+type Comparable interface {
+    ~byte | ~int | ~uint | ~int64 | ~uint64 | string
 }

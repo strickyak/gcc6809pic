@@ -3,6 +3,7 @@ package main
 // Slurp a config file with [] headers
 
 import (
+	"log"
 	"os"
 	"regexp"
 	"strings"
@@ -12,24 +13,41 @@ var FindBlankLine = regexp.MustCompile(`^\s*$`).FindStringSubmatch
 var FindCommentLine = regexp.MustCompile(`^\s*[#]`).FindStringSubmatch
 var FindHeaderLine = regexp.MustCompile(`^\s*[[](.*)[]]\s*$`).FindStringSubmatch
 
-func ReadConfigFile(filename string) (z map[string][]string) {
-    var header string
+type ConfigDefine struct {
+	Key     string
+	LineNum int
+	Lines   []string
+}
 
-    s := string(Value(os.ReadFile(filename)))
-    s = strings.ReplaceAll(s, "\r", "\n")
-    lines := strings.Split(s, "\n")
-    for _, line := range lines {
-        if FindBlankLine(line) != nil {
+func ReadConfigFile(filename string) ( map[string]*ConfigDefine) {
+    rules := make(map[string]*ConfigDefine)
+	var cd *ConfigDefine
+
+	s := string(Value(os.ReadFile(filename)))
+	s = strings.ReplaceAll(s, "\r", "\n")
+	lines := strings.Split(s, "\n")
+	i := 0
+	for _, line := range lines {
+		i++
+		if FindBlankLine(line) != nil {
+			continue
+		}
+		if FindCommentLine(line) != nil {
+			continue
+		}
+		if hl := FindHeaderLine(line); hl != nil {
+            key := strings.TrimSpace(hl[1])
+			cd = &ConfigDefine{
+				Key:     key,
+				LineNum: i,
+			}
+	        rules[key] = cd
             continue
-        }
-        if FindCommentLine(line) != nil {
-            continue
-        }
-        if hl := FindHeaderLine(line); hl != nil {
-            header = hl[1]
-            continue
-        }
-        z[header] = append(z[header], line)
-    }
-    return
+		}
+		if cd == nil {
+			log.Panicf("Line %d not in any section: %q", i, line)
+		}
+		cd.Lines = append(cd.Lines, line)
+	}
+	return rules
 }

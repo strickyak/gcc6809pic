@@ -1,30 +1,169 @@
-[ jmp T ]
-  lbra T
+[ jmp Text ]
+  lbra Text
 
-[ jsr T ]
-  lbsr T
+[ jsr Text ]
+  lbsr Text
 
-[ ldd #T ]
+[ ldd #Text ]
   tfr d,x
-  leax T
+  leax Text,pcr
   tfr d,x
+[ ldx #Text ]
+  leax Text,pcr
+[ ldu #Text ]
+  leau Text,pcr
 
-[ ldx T ]
-  leax T,pcr
-  ldx ,x
-[ ldy T ]
-  leay T,pcr
+[ ldx #Text ]
+  leax Text,pcr
+[ ldx Text ]
+  leax Text,pcr
+[ ldy Text ]
+  leay Text,pcr
+[ ldu Text ]
+  leau Text,pcr
+
+[ ldy Text ]
+  leay Text,pcr
   ldy ,y
-[ ldu T ]
-  leau T,pcr
+[ ldu Text ]
+  leau Text,pcr
   ldu ,u
 
-[ leax T ]
-  leax T,pcr
-[ leay T ]
-  leay T,pcr
-[ leau T ]
-  leau T,pcr
+[ leax Text ]
+  leax Text,pcr
+[ leay Text ]
+  leay Text,pcr
+[ leau Text ]
+  leau Text,pcr
 
+[ lda Text,x ]
+  pshs b,x
+  tfr x,d
+  leax Text,pcr
+  leax d,x
+  lda ,x
+  puls b,x
+[ ldb Text,x ]
+  pshs a,x
+  tfr x,d
+  leax Text,pcr
+  leax d,x
+  ldb ,x
+  puls a,x
+[ ldd Text,x ]
+  pshs x
+  tfr x,d
+  leax Text,pcr
+  leax d,x
+  ldd ,x
+  puls x
 
+[ lda Text,u ]
+  pshs b,u
+  tfr u,d
+  leau Text,pcr
+  leau d,u
+  lda ,u
+  puls b,u
+[ ldb Text,u ]
+  pshs a,u
+  tfr u,d
+  leau Text,pcr
+  leau d,u
+  ldb ,u
+  puls a,u
+[ ldd Text,u ]
+  pshs u
+  tfr u,d
+  leau Text,pcr
+  leau d,u
+  ldd ,u
+  puls u
 
+[ leax Data,x ]
+  exg d,y
+  leax Data,x
+  leax d,x
+  exg d,y
+[ leau Data,u ]
+  exg d,y
+  leau Data,u
+  leau d,u
+  exg d,y
+
+[ addd #Data ]
+  exg d,x
+  leax Data,y
+  exg d,x
+
+[ ldd #Data ]
+  exg d,x
+  leax Data,y
+  exg d,x
+[ ldx #Data ]
+  leax Data,y
+[ ldu #Data ]
+  leau Data,y
+
+[ lda Data ]
+  lda Data,y
+[ ldb Data ]
+  ldb Data,y
+[ ldd Data ]
+  ldd Data,y
+[ ldx Data ]
+  ldx Data,y
+[ ldu Data ]
+  ldu Data,y
+
+[ sta Data ]
+  sta Data,y
+[ stb Data ]
+  stb Data,y
+[ std Data ]
+  std Data,y
+[ stx Data ]
+  stx Data,y
+[ stu Data ]
+  stu Data,y
+
+[ ldb Data,x ]
+  pshs a,x
+  tfr y,d
+  leax d,x
+  ldb Data,x
+  puls a,x
+[ ldb Data,u ]
+  pshs a,u
+  tfr y,d
+  leau d,u
+  ldb Data,u
+  puls a,u
+
+[ cmpd Data ]
+  cmpd Data,y
+[ cmpx Data ]
+  cmpx Data,y
+[ cmpu Data ]
+  cmpu Data,y
+
+[ clr Data ]
+  clr Data,y
+
+[ stb Data,x ]
+  pshs a,x
+  pshs b
+  tfr y,d
+  leax d,x
+  puls b
+  stb Data,x
+  puls a,x
+[ stb Data,u ]
+  pshs a,u
+  pshs b
+  tfr y,d
+  leau d,u
+  puls b
+  stb Data,u
+  puls a,u
+  

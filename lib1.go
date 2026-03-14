@@ -59,13 +59,13 @@ func PreSlurp(filename string, ifdefMode bool) {
 				w.Close()
 				w = nil
 			}
-			w = Value(os.Create(mi[1]))
+			w = Value(os.Create(Format("_%s.s" , mi[1] )))
 		case me != nil:
 			w.Close()
 			w = nil
 		default:
 			if w != nil {
-				fmt.Println(line)
+				fmt.Fprintln(w, line)
 			}
 		}
 	}
