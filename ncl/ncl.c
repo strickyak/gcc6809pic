@@ -15,6 +15,8 @@
 #define  QUICK_FIX_STATIC  static  // ... or else gcc bombs.
 #define  NO_INLINE  __attribute__((noinline))
 
+#define CONST_VAR __attribute__((section(".text.var")))
+
 ////// #define  PC_Trace(A,B) /*nothing*/
 #define  Os9WritLn  GccOs9WritLn
 #define  Os9MakDir  GccOs9MakDir
@@ -1559,15 +1561,17 @@ const char *JoinWithSpaces(int argc, char **argv) {
   return BufTake(&buf);
 }
 
-void picolRegisterCoreCommands() {
-  const char *mathOps[] = {
+CONST_VAR const char const *mathOps[] = {
     "+", "-", "*", "/", "%", ">", ">=", "<", "<=", "==", "!=",
     "bitand", "bitor", "bitxor", "<<", ">>", ">>>", NULL
   };
+
+CONST_VAR const char const *strOps[] = { "eq", "ne", "lt", "le", "gt", "ge", NULL };
+
+void picolRegisterCoreCommands() {
   for (const char **p = mathOps; *p; p++)
     picolRegisterCommand(*p, 0, 0, picolCommandMath, NULL);
 
-  const char *strOps[] = { "eq", "ne", "lt", "le", "gt", "ge", NULL };
   for (const char **p = strOps; *p; p++)
     picolRegisterCommand(*p, 3, 3, picolCommandStringRelOp, NULL);
 

@@ -10,11 +10,11 @@ extern File StdOut_File;
 extern File StdErr_File;
 
 //chop
-File StdIn_File = {0};
+CONST_VAR File StdIn_File = {0};
 //chop
-File StdOut_File = {1};
+CONST_VAR File StdOut_File = {1};
 //chop
-File StdErr_File = {2};
+File CONST_VAR StdErr_File = {2};
 //chop
 
 // FOpen returns NULL and sets ErrNo on error.
