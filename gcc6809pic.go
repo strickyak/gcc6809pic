@@ -135,12 +135,12 @@ ROUNDS:
 			}
 		}
 		if done {
-		    fmt.Printf(";;; Finished Rounds %d.\n", round)
+			fmt.Printf(";;; Finished Rounds %d.\n", round)
 			break ROUNDS
 		}
 
 		fmt.Printf(";;; Begin Round %d.\n", round)
-    NEEDS:
+	NEEDS:
 		for s := range LibNeeded {
 			fmt.Printf(";;; Needed %q\n", s)
 			provider, ok := LibProvidedBy[s]

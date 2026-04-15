@@ -3,7 +3,7 @@ package main
 import (
 	// "bytes"
 	// . "fmt"
-    "flag"
+	"flag"
 	// "io"
 	// "io/ioutil"
 	// "log"
@@ -12,13 +12,13 @@ import (
 var GCC = flag.Bool("gcc", false, "generate code for gcc, if true")
 
 func main() {
-    flag.Parse()
+	flag.Parse()
 
-    // if *GCC {
-	    PrintCallsForGcc()
-    // } else {
-	    // PrintCallsForCmoc()
-    // }
+	// if *GCC {
+	PrintCallsForGcc()
+	// } else {
+	// PrintCallsForCmoc()
+	// }
 }
 
 //// assumes all args are on stack.

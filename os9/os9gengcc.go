@@ -2,7 +2,7 @@ package main
 
 import (
 	"bytes"
-    "flag"
+	"flag"
 	. "fmt"
 	"io"
 	"io/ioutil"
@@ -63,16 +63,16 @@ func PrintCForGcc(c *Os9ApiCall, w io.Writer) {
 		Fprintf(w, format+"\n", args...)
 	}
 
-    P("")
-    P("/////////// %s // %s", c.Name, c.Desc)
-    // __attribute__((externally_visible))
-    // __attribute__((noinline))
-    // Problem: when inlining, it did not issue PSHS Y PULS Y,
-    // and Y got clobbered.  So let's try attribute `noinline`.
+	P("")
+	P("/////////// %s // %s", c.Name, c.Desc)
+	// __attribute__((externally_visible))
+	// __attribute__((noinline))
+	// Problem: when inlining, it did not issue PSHS Y PULS Y,
+	// and Y got clobbered.  So let's try attribute `noinline`.
 	P("__attribute__((noinline))")
 	P("errnum GccOs9%s  (\n", c.Name[2:])
 	P("%s) {\n", c.FormatArgsForGcc())
-    P("  errnum _err_ = 0;\n");
+	P("  errnum _err_ = 0;\n")
 
 	if c.A != "" {
 		P("    volatile byte vol_a = (byte)%s;", c.A)
@@ -112,15 +112,15 @@ func PrintCForGcc(c *Os9ApiCall, w io.Writer) {
 		P("    volatile word vol_ru = (word)%s_out;", c.RU)
 	}
 	P("    volatile word savedY;")
-    if *OmitFramePointer {
-	    P("    volatile word savedU;")
-    }
+	if *OmitFramePointer {
+		P("    volatile word savedU;")
+	}
 
-    P(`    asm volatile ("\n"`);
-    P(`    "  sty %%[savedY]\n"`)
-    if *OmitFramePointer {
-        P(`    "  stu %%[savedU]\n"`)
-    }
+	P(`    asm volatile ("\n"`)
+	P(`    "  sty %%[savedY]\n"`)
+	if *OmitFramePointer {
+		P(`    "  stu %%[savedU]\n"`)
+	}
 	if c.A != "" {
 		P(`    "  lda %%[vol_a]\n"`)
 	}
@@ -141,8 +141,8 @@ func PrintCForGcc(c *Os9ApiCall, w io.Writer) {
 	}
 
 	P(`    "  os9 $%02x ; %s ; %s\n"`, c.Number, c.Name, c.Desc)
-    P(`    "  bcc @OK \n"`)
-    P(`    "  stb %%[_err_]\n"`)
+	P(`    "  bcc @OK \n"`)
+	P(`    "  stb %%[_err_]\n"`)
 	P(`    "  bra @END \n"`)
 	P(`    "@OK:\n"`)
 
@@ -166,12 +166,12 @@ func PrintCForGcc(c *Os9ApiCall, w io.Writer) {
 	}
 
 	P(`    "@END:\n"`)
-    if *OmitFramePointer {
-        P(`    "  ldu %%[savedU]\n"`)
-    }
-    P(`    "  ldy %%[savedY]\n"`)
+	if *OmitFramePointer {
+		P(`    "  ldu %%[savedU]\n"`)
+	}
+	P(`    "  ldy %%[savedY]\n"`)
 
-    P(`  : // outputs`)
+	P(`  : // outputs`)
 
 	if c.RA != "" {
 		P(`    [vol_ra] "=m" (vol_ra),`)
@@ -191,47 +191,44 @@ func PrintCForGcc(c *Os9ApiCall, w io.Writer) {
 	if c.RU != "" {
 		P(`    [vol_ru] "=m" (vol_ru),`)
 	}
-    if *OmitFramePointer {
+	if *OmitFramePointer {
 		P(`    [savedY] "=m" (savedY),`)
-    }
+	}
 	P(`    [savedU] "=m" (savedU),`)
 	P(`    [_err_] "=m" (_err_)`)
 
+	P("  : // inputs")
 
-    P("  : // inputs")
-
-    comma := " "
+	comma := " "
 	if c.A != "" {
 		P(`    %s [vol_a] "m" (vol_a)`, comma)
-        comma = ","
+		comma = ","
 	}
 	if c.B != "" {
 		P(`    %s [vol_b] "m" (vol_b)`, comma)
-        comma = ","
+		comma = ","
 	}
 	if c.D != "" {
 		P(`    %s [vol_d] "m" (vol_d)`, comma)
-        comma = ","
+		comma = ","
 	}
 	if c.X != "" {
 		P(`    %s [vol_x] "m" (vol_x)`, comma)
-        comma = ","
+		comma = ","
 	}
 	if c.Y != "" {
 		P(`    %s [vol_y] "m" (vol_y)`, comma)
-        comma = ","
+		comma = ","
 	}
 	if c.U != "" {
 		P(`    %s [vol_u] "m" (vol_u)`, comma)
-        comma = ","
+		comma = ","
 	}
 
-
-
-    P(`  : "d", "x", "y", "u" // clobbers`)
-    P(`  );`)
-    P(`   return _err_;`)
-    P(`};`)
+	P(`  : "d", "x", "y", "u" // clobbers`)
+	P(`  );`)
+	P(`   return _err_;`)
+	P(`};`)
 }
 
 func PrintCallsForGcc() {
@@ -258,9 +255,9 @@ func PrintCallsForGcc() {
 
 	var gen_asm bytes.Buffer
 
-    Fprintln(&gen_asm, `#include "types_gcc6809.h"`)
-    Fprintln(&gen_asm, `#include "_generated_os9api_for_gcc.h"`)
-    Fprintln(&gen_asm, ``)
+	Fprintln(&gen_asm, `#include "types_gcc6809.h"`)
+	Fprintln(&gen_asm, `#include "_generated_os9api_for_gcc.h"`)
+	Fprintln(&gen_asm, ``)
 	for _, c := range Os9ApiCalls {
 		PrintCForGcc(c, &gen_asm)
 	}
