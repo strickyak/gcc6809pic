@@ -194,6 +194,14 @@ func Examine1(a *AsmLine) {
             goto end
         }
         param = m[0]
+
+        if _, ok := Arithmetic[param]; ok {
+			    Symbols[param] = &Symbol{
+				    Label: param,
+				    Area:  ".lib",
+			    }
+		}
+
         symbol, ok := Symbols[param]
         if !ok {
             kind = "unknown??"
@@ -202,7 +210,7 @@ func Examine1(a *AsmLine) {
 
         kind = symbol.Area
         switch symbol.Area {
-        case ".text", ".text.startup":
+        case ".text", ".text.startup", ".lib":
             kind = "T";
         case ".data":
             kind = "D";
@@ -259,6 +267,8 @@ var ShortBlessed = map[string]bool {
     "bls": true,
     "bpl": true,
     "bmi": true,
+    "bcs": true,
+    "bcc": true,
 }
 
 var Blessed = map[string]bool {
@@ -284,18 +294,20 @@ var Blessed = map[string]bool {
     "lbls": true,
     "lbpl": true,
     "lbmi": true,
+    "lbcs": true,
+    "lbcc": true,
 }
 
-/*
-SymbolNotFound: "_udivhi3"
-SymbolNotFound: "_umodhi3"
-SymbolNotFound: "_mulhi3"
-SymbolNotFound: "_divhi3"
-SymbolNotFound: "_modhi3"
-SymbolNotFound: "_ashrhi3"
-SymbolNotFound: "_lshrhi3"
-SymbolNotFound: "_ashlhi3"
-*/
+var Arithmetic = map[string]bool {
+    "_udivhi3": true,
+    "_umodhi3": true,
+    "_mulhi3": true,
+    "_divhi3": true,
+    "_modhi3": true,
+    "_ashrhi3": true,
+    "_lshrhi3": true,
+    "_ashlhi3": true,
+ }
 
 var ArithLib = regexp.MustCompile(`\b_(u?(div|mod|mul)|[al]sh[rl])hi3\b`)
 

@@ -10,7 +10,7 @@ os9-dir:
 
 %.os9: %.c ../gcc6809pic.go ../util.go os9-dir
 	gcc6809 -std=gnu99 -Os -ffixed-y -fomit-frame-pointer -fwhole-program -msoft-reg-count=4 -S -I.. -I/home/strick/modoc/coco-shelf/frobio/ -D'BASENAME'='"ncl"' $*.c
-	go run ../gcc6809pic.go ../util.go ../lib1.go --name='$*' -- $*.s > $*.asm
+	go run ../../gcc6809pic/ --name='$*' -- $*.s > $*.asm
 	lwasm $(PRAGMA) --format=os9 $*.asm -o'$@' -I$(N9)/level1/coco1 -I$(N9)/level1/coco1/defs --list=$*.os9.list --map=$*.os9.map
 	go run $(V3)/borges-saver/borges-saver.go --outdir=$(BORGES) .
 	os9 copy -r $*.os9 $(V3)/generated/level1.dsk,cmds/$*

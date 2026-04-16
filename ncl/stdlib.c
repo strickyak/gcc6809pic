@@ -21,7 +21,7 @@ void StderrPuts(const char* s) {
 
 void Panic(const char* s) {
   StderrPuts(s);
-  asm volatile("panicked: bra panicked");
+  asm volatile("\npanicked: bra panicked\n");
 }
 
 void abort(void) {
