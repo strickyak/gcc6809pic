@@ -18,8 +18,8 @@ type Rule struct {
 	Lines   []string
 }
 
-func ReadConfigFile() ( map[string]*Rule) {
-    rules := make(map[string]*Rule)
+func ReadConfigFile() map[string]*Rule {
+	rules := make(map[string]*Rule)
 	var cd *Rule
 
 	s := RULES_TXT
@@ -35,13 +35,13 @@ func ReadConfigFile() ( map[string]*Rule) {
 			continue
 		}
 		if hl := FindHeaderLine(line); hl != nil {
-            key := strings.TrimSpace(hl[1])
+			key := strings.TrimSpace(hl[1])
 			cd = &Rule{
 				Key:     key,
 				LineNum: i,
 			}
-	        rules[key] = cd
-            continue
+			rules[key] = cd
+			continue
 		}
 		if cd == nil {
 			log.Panicf("Line %d not in any section: %q", i, line)
@@ -271,6 +271,25 @@ const RULES_TXT = `
   ldb Data,u
   puls a,u
 
+[ anda Data,x ]
+  pshs d,x
+  tfr y,d
+  leax d,x
+  puls d
+  anda Data,x
+  puls x
+[ andb Data,x ]
+  pshs d,x
+  tfr y,d
+  leax d,x
+  puls d
+  andb Data,x
+  puls x
+
+[ cmpa Data ]
+  cmpa Data,y
+[ cmpb Data ]
+  cmpb Data,y
 [ cmpd Data ]
   cmpd Data,y
 [ cmpx Data ]

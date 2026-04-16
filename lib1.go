@@ -2,72 +2,55 @@ package main
 
 import (
 	"bufio"
-	"fmt"
-	"io"
+	//"fmt"
+	//"io"
+	"log"
 	"os"
 	"regexp"
 	"strings"
 )
 
-var LibDefines = make(map[string]string)
-var LibProvides = make(map[string][]string)
-var LibRequires = make(map[string][]string)
+var LibProvidedBy = make(map[string]string)
 var LibContents = make(map[string][]string)
 
-var MatchDefine = regexp.MustCompile(`#define\s+(\S+)\s+(.*)`).FindStringSubmatch
 var MatchIfdef = regexp.MustCompile(`#ifdef\s+(\S+)`).FindStringSubmatch
 var MatchEndif = regexp.MustCompile(`#endif`).FindStringSubmatch
 
+var MatchLabel = regexp.MustCompile(`^([A-Za-z0-9_.]+)[:]?`).FindStringSubmatch
+
 var MatchEmbeddedIdentifier = regexp.MustCompile(`(.*)\b([_][A-Za-z0-9_.]+)\b(.*)?$`).FindStringSubmatch
 
-func PreSlurp(filename string, ifdefMode bool) {
-	fd := Value(os.Open(filename))
+func LoadLibrary() {
+	log.Printf("LIBLINE HERE")
+	tag := "none"
+	fd := Value(os.Open(*LIB1))
 	scanner := bufio.NewScanner(fd)
 	i := 0
-	var w io.WriteCloser
 
 	for scanner.Scan() {
 		i++
 		line := scanner.Text()
 		line = strings.TrimRight(line, " \t\r\n")
 
-		// Re-Iterate after success, if ever nested.
-		for k, v := range LibDefines {
-			line = strings.Replace(line, k, v, 1)
-		}
-
-		LibContents[filename] = append(LibContents[filename], line)
-		if meip := MatchEmbeddedIdentifier(line); meip != nil {
-			if meip[1] == "" {
-				LibProvides[meip[2]] = append(
-					LibProvides[meip[2]], filename)
-			} else {
-				LibRequires[meip[2]] = append(
-					LibRequires[meip[2]], filename)
-			}
-		}
-
-		md := MatchDefine(line)
 		mi := MatchIfdef(line)
 		me := MatchEndif(line)
-
+		ml := MatchLabel(line)
+		log.Printf("LIBLINE %03d. %q mi %v me %v ml %v", i, line, mi, me, ml)
 		switch {
-		case md != nil:
-			LibDefines[md[1]] = md[2]
+
 		case mi != nil:
-			if w != nil {
-				w.Close()
-				w = nil
-			}
-			w = Value(os.Create(Format("_%s.s" , mi[1] )))
+			tag = mi[1]
+
 		case me != nil:
-			w.Close()
-			w = nil
+			tag = "none"
+
+		case ml != nil:
+			LibProvidedBy[ml[1]] = tag
+			fallthrough
+
 		default:
-			if w != nil {
-				fmt.Fprintln(w, line)
-			}
+			LibContents[tag] = append(LibContents[tag], line)
 		}
 	}
-	Check(scanner.Err(), filename)
+	Check(scanner.Err(), *LIB1)
 }
